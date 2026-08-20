@@ -2,6 +2,13 @@
 
 一个油猴脚本，把 [linux.do](https://linux.do/) 的 web 界面换成飞书云文档风格——主页像云文档文件列表，话题页像文档编辑页。**只换皮，不碰数据**：Linux DO 的真实内容、链接、按钮与交互全部保留。
 
+<img width="1881" height="865" alt="image" src="https://github.com/user-attachments/assets/c7be2963-8d4b-40a0-8c2c-589f9db082dc" />  
+
+
+
+<img width="1901" height="866" alt="image" src="https://github.com/user-attachments/assets/32b9f4b5-f567-47a3-b5a2-577393eee70b" />
+
+
 ## 安装
 
 1. 浏览器安装 [Tampermonkey](https://www.tampermonkey.net/)（或 Violentmonkey）。
