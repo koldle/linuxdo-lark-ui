@@ -33,3 +33,6 @@
 ## License
 
 MIT
+
+## 友链
+[linux.do](https://linux.do/)
