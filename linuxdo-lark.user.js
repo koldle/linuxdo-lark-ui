@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Linux DO · 飞书云文档外观
 // @namespace    https://linux.do/
-// @version      1.4.2
+// @version      1.4.3
 // @description  将 Linux DO 的主页与话题页换成飞书云文档风格，浅色 / 深色外观自动跟随站点颜色模式。仅改变外观，保留站点原有内容与交互。
 // @author       Codex
 // @match        https://linux.do/*
@@ -23,6 +23,8 @@
   const HOME_CLASS = "lark-doc-home";
   const TOPIC_CLASS = "lark-doc-topic";
   const DARK_CLASS = "lark-dark";
+  const HIDE_AVATARS_CLASS = "lark-hide-avatars";
+  const AVATAR_KEY = "lark-doc-avatars";
 
   const CSS = String.raw`
     html.lark-doc-theme {
@@ -443,6 +445,31 @@
 
     html.lark-doc-theme .sidebar-footer-actions-button:hover {
       background: var(--lark-hover) !important;
+    }
+
+    /* 侧栏开关按钮（头像显隐等脚本自有开关） */
+    html.lark-doc-theme .lark-avatar-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--lark-text-2);
+      cursor: pointer;
+    }
+
+    html.lark-doc-theme .lark-avatar-toggle:hover {
+      background: var(--lark-hover);
+      color: var(--lark-text);
+    }
+
+    html.lark-doc-theme .lark-avatar-toggle svg {
+      width: 17px;
+      height: 17px;
     }
 
     /* 主内容基础布局 */
@@ -1042,6 +1069,61 @@
       font-size: 12px !important;
     }
 
+    /* 帖子区评论化：头像栏缩窄 + 楼间距收紧（头像栏宽度由 Discourse 变量驱动） */
+    html.lark-doc-theme.lark-doc-topic {
+      --topic-avatar-width: 32px;
+    }
+
+    html.lark-doc-theme.lark-doc-topic .topic-avatar .avatar,
+    html.lark-doc-theme.lark-doc-topic .topic-avatar .placeholder-avatar {
+      width: 32px !important;
+      height: 32px !important;
+    }
+
+    html.lark-doc-theme.lark-doc-topic .topic-post,
+    html.lark-doc-theme.lark-doc-topic .topic-post article {
+      border-top-color: var(--lark-line-soft) !important;
+      padding-top: 12px !important;
+      padding-bottom: 4px !important;
+    }
+
+    html.lark-doc-theme.lark-doc-topic .post-menu-area {
+      margin: 8px 0 !important;
+    }
+
+    /* 评论式元信息行：名字 500 字重，时间小号灰色 */
+    html.lark-doc-theme.lark-doc-topic .topic-meta-data {
+      padding-bottom: 4px !important;
+    }
+
+    html.lark-doc-theme.lark-doc-topic .topic-meta-data .names span.first {
+      font-size: 14px !important;
+      font-weight: 500 !important;
+    }
+
+    html.lark-doc-theme.lark-doc-topic .topic-meta-data .post-infos,
+    html.lark-doc-theme.lark-doc-topic .topic-meta-data .post-infos a {
+      color: var(--lark-text-3) !important;
+      font-size: 12px !important;
+    }
+
+    /* 系统提示帖压缩成一行灰字 */
+    html.lark-doc-theme.lark-doc-topic .small-action {
+      border-top-color: var(--lark-line-soft) !important;
+      padding: 6px 0 !important;
+      color: var(--lark-text-3) !important;
+      font-size: 13px !important;
+    }
+
+    /* 头像开关：隐藏头像列并把宽度变量归零，正文占满整行 */
+    html.lark-doc-theme.lark-hide-avatars {
+      --topic-avatar-width: 0px;
+    }
+
+    html.lark-doc-theme.lark-hide-avatars .topic-avatar {
+      display: none !important;
+    }
+
     /* 回复编辑器改成评论输入区域 */
     html.lark-doc-theme .d-editor-container,
     html.lark-doc-theme .composer-popup,
@@ -1184,6 +1266,54 @@
     document.documentElement.classList.toggle(DARK_CLASS, isDarkMode());
   }
 
+  const AVATAR_ON_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c.8-3.3 4-5 7.5-5s6.7 1.7 7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const AVATAR_OFF_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c.8-3.3 4-5 7.5-5s6.7 1.7 7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m4 4 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  function avatarsHidden() {
+    try {
+      return localStorage.getItem(AVATAR_KEY) === "hide";
+    } catch {
+      return false;
+    }
+  }
+
+  function applyAvatarPref() {
+    document.documentElement.classList.toggle(HIDE_AVATARS_CLASS, avatarsHidden());
+  }
+
+  function toggleAvatars() {
+    try {
+      localStorage.setItem(AVATAR_KEY, avatarsHidden() ? "show" : "hide");
+    } catch {}
+    applyAvatarPref();
+    scheduleApply();
+  }
+
+  function makeAvatarToggle() {
+    const actions = document.querySelector(".sidebar-footer-actions");
+    if (!actions) return;
+
+    let button = actions.querySelector(".lark-avatar-toggle");
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "lark-avatar-toggle";
+      button.addEventListener("click", toggleAvatars);
+      actions.appendChild(button);
+    }
+
+    const hidden = avatarsHidden();
+    if (button.dataset.hidden === String(hidden)) return;
+    button.dataset.hidden = String(hidden);
+    const title = hidden ? "头像：已隐藏（点击显示）" : "头像：显示中（点击隐藏）";
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.setAttribute("aria-pressed", String(hidden));
+    button.innerHTML = hidden ? AVATAR_OFF_ICON : AVATAR_ON_ICON;
+  }
+
   function makeSidebarSearch() {
     const container = document.querySelector(".sidebar-container");
     if (!container || container.querySelector(".lark-sidebar-search")) return;
@@ -1306,6 +1436,7 @@
     injectStyle();
     document.documentElement.classList.add("lark-doc-theme");
     applyColorMode();
+    applyAvatarPref();
     if (!document.body) return;
 
     const kind = routeKind();
@@ -1317,6 +1448,7 @@
     makeBrand();
     makeFavicon();
     makeSidebarSearch();
+    makeAvatarToggle();
 
     const homeHeading = document.querySelector(".lark-home-heading");
     const topicContext = document.querySelector(".lark-topic-context");
@@ -1353,6 +1485,7 @@
     injectStyle();
     document.documentElement.classList.add("lark-doc-theme");
     applyColorMode();
+    applyAvatarPref();
 
     try {
       localStorage.removeItem("lark-doc-theme-mode"); // 清理旧版手动切换的遗留设置
