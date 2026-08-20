@@ -1,11 +1,16 @@
 // ==UserScript==
 // @name         Linux DO · 飞书云文档外观
 // @namespace    https://linux.do/
-// @version      1.4.0
+// @version      1.4.1
 // @description  将 Linux DO 的主页与话题页换成飞书云文档风格，浅色 / 深色外观自动跟随站点颜色模式。仅改变外观，保留站点原有内容与交互。
 // @author       Codex
 // @match        https://linux.do/*
 // @icon         https://linux.do/favicon.ico
+// @noframes
+// @homepageURL  https://github.com/koldle/linuxdo-lark-ui
+// @supportURL   https://github.com/koldle/linuxdo-lark-ui/issues
+// @updateURL    https://raw.githubusercontent.com/koldle/linuxdo-lark-ui/master/linuxdo-lark.user.js
+// @downloadURL  https://raw.githubusercontent.com/koldle/linuxdo-lark-ui/master/linuxdo-lark.user.js
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -18,7 +23,6 @@
   const HOME_CLASS = "lark-doc-home";
   const TOPIC_CLASS = "lark-doc-topic";
   const DARK_CLASS = "lark-dark";
-  let faviconObserver;
 
   const CSS = String.raw`
     html.lark-doc-theme {
@@ -52,6 +56,7 @@
       --lark-shadow-2: rgb(31 35 41 / 8%);
       --lark-shadow-3: rgb(31 35 41 / 12%);
       --lark-sidebar: 280px;
+      --lark-header-panel: 280px;
       --primary: #1f2329 !important;
       --secondary: #ffffff !important;
       --tertiary: #3370ff !important;
@@ -270,7 +275,7 @@
     html.lark-doc-theme .lark-topic-context {
       position: absolute;
       left: calc(var(--lark-sidebar) + 16px);
-      right: 280px;
+      right: var(--lark-header-panel);
       top: 9px;
       z-index: 2;
       min-width: 0;
@@ -515,7 +520,7 @@
       position: absolute;
       z-index: 2;
       top: 0;
-      right: 280px;
+      right: var(--lark-header-panel);
       left: calc(var(--lark-sidebar) + 16px);
       display: flex;
       align-items: center;
@@ -610,7 +615,8 @@
       list-style: none !important;
     }
 
-    html.lark-doc-theme.lark-doc-home .navigation-container > .lark-create-topic-slot {
+    /* 原生「新建话题」按钮保留在 Ember 原位，仅用 CSS 视觉重排到右侧 */
+    html.lark-doc-theme.lark-doc-home .navigation-controls {
       display: flex !important;
       flex: 0 0 auto !important;
       align-items: center !important;
@@ -618,7 +624,10 @@
       min-height: 48px !important;
       margin: 0 0 0 auto !important;
       padding: 0 !important;
-      list-style: none !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .navigation-controls > :not(.lark-create-topic) {
+      display: none !important;
     }
 
     html.lark-doc-theme.lark-doc-home .navigation-container .lark-create-topic {
@@ -732,9 +741,32 @@
       vertical-align: middle !important;
     }
 
-    html.lark-doc-theme.lark-doc-home .topic-list-header th .lark-column-label {
-      color: var(--lark-text-3) !important;
-      font-size: 13px !important;
+    /* 列标签由纯 CSS 生成，不向 Ember 渲染的 th 注入节点 */
+    html.lark-doc-theme.lark-doc-home .topic-list-header th::before {
+      color: var(--lark-text-3);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.default::before,
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.main-link::before {
+      content: "标题";
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.posters::before {
+      content: "所有者";
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.posts::before {
+      content: "回复";
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.views::before {
+      content: "浏览量";
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-header th.activity::before {
+      content: "最近访问 ↓";
     }
 
     html.lark-doc-theme.lark-doc-home .topic-list-header th .d-icon {
@@ -987,14 +1019,13 @@
 
     /* 窄屏只保证可用，不另做移动端仿制 */
     @media (max-width: 1100px) {
-      html.lark-doc-theme .lark-topic-context {
-        left: calc(var(--lark-sidebar) + 12px);
-        right: 220px;
+      html.lark-doc-theme {
+        --lark-header-panel: 220px;
       }
 
+      html.lark-doc-theme .lark-topic-context,
       html.lark-doc-theme .lark-home-heading {
         left: calc(var(--lark-sidebar) + 12px);
-        right: 220px;
       }
 
       html.lark-doc-theme.lark-doc-topic .topic-navigation,
@@ -1061,16 +1092,6 @@
         icon.setAttribute("href", faviconHref);
       }
     }
-
-    if (!faviconObserver) {
-      faviconObserver = new MutationObserver(makeFavicon);
-      faviconObserver.observe(head, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["href", "rel", "type", "sizes"]
-      });
-    }
   }
 
   // 对齐 linux.do 自身的颜色模式：深色配色样式表 link 的 media 表达 浅色/深色/自动
@@ -1122,56 +1143,29 @@
     if (heading.parentElement !== headerContents) headerContents.appendChild(heading);
   }
 
+  // 不再移动站点原生按钮（避免破坏 Ember 的 DOM 追踪），视觉位置交给 CSS
   function makeCreateTopicButton() {
-    const controlsRoot = document.querySelector(".navigation-container, .list-controls");
-    if (!controlsRoot) return;
-
     const candidates = [
       ".navigation-container .create-topic",
-      ".navigation-controls .create-topic",
       ".navigation-container #create-topic",
-      ".navigation-controls #create-topic",
       ".navigation-container button[title*='新建话题']",
-      ".navigation-container button[aria-label*='新建话题']",
-      ".list-controls button[title*='新建话题']",
-      ".list-controls button[aria-label*='新建话题']"
+      ".navigation-container button[aria-label*='新建话题']"
     ];
     let button = document.querySelector(candidates.join(", "));
     if (!button) {
-      button = [...controlsRoot.querySelectorAll("button")].find((node) => {
-        const label = [
-          node.textContent,
-          node.title,
-          node.getAttribute("aria-label")
-        ]
+      const controls = document.querySelector(".navigation-controls");
+      button = [...(controls?.querySelectorAll("button") || [])].find((node) =>
+        [node.textContent, node.title, node.getAttribute("aria-label")]
           .filter(Boolean)
           .join(" ")
-          .replace(/\s+/g, " ");
-        return label.includes("新建话题");
-      });
+          .includes("新建话题")
+      );
     }
     if (!button) return;
 
     button.classList.add("lark-create-topic");
     button.setAttribute("aria-label", "新建话题");
     button.title = "新建话题";
-
-    const navigationContainer = document.querySelector(".navigation-container");
-    if (!navigationContainer) return;
-    let slot = navigationContainer.querySelector(":scope > .lark-create-topic-slot");
-    if (!slot) {
-      slot = document.createElement("div");
-      slot.className = "lark-create-topic-slot";
-      navigationContainer.appendChild(slot);
-    }
-    if (button.parentElement !== slot) slot.appendChild(button);
-
-    for (const legacySlot of navigationContainer.querySelectorAll(
-      ".nav-pills > .lark-create-topic-slot"
-    )) {
-      legacySlot.remove();
-    }
-
   }
 
   function makeTopicContext() {
@@ -1193,49 +1187,47 @@
       headerContents.appendChild(context);
     }
 
-    const routeKey = `${location.pathname}|${title}`;
-    if (context.dataset.routeKey === routeKey) return;
-    context.dataset.routeKey = routeKey;
-
     const category = document.querySelector(
       "#topic-title .badge-category__name, #topic-title .badge-wrapper, #topic-title .category-name"
     );
     const categoryText = category?.textContent?.trim().replace(/\s+/g, " ") || "知识库";
+
+    // meta 行只放真实数据：主帖发布日期；取不到则不显示，不伪造状态
+    const firstTime = document.querySelector(".topic-post time[datetime]");
+    const postDate = firstTime ? new Date(firstTime.getAttribute("datetime")) : null;
+    const dateText =
+      postDate && !Number.isNaN(postDate.getTime())
+        ? `发布于 ${postDate.getFullYear()}-${String(postDate.getMonth() + 1).padStart(2, "0")}-${String(postDate.getDate()).padStart(2, "0")}`
+        : "";
+
+    // dateText 纳入 routeKey：主帖后渲染出来时仍能补上 meta 行
+    const routeKey = `${location.pathname}|${title}|${dateText}`;
+    if (context.dataset.routeKey === routeKey) return;
+    context.dataset.routeKey = routeKey;
     context.replaceChildren();
 
     const crumbs = document.createElement("div");
     crumbs.className = "lark-topic-crumbs";
     crumbs.textContent = `知识库  ›  ${categoryText}  ›  ${title}`;
+    context.append(crumbs);
 
-    const meta = document.createElement("div");
-    meta.className = "lark-topic-meta";
-    meta.textContent = "内部使用　｜　云端实时保存";
-
-    context.append(crumbs, meta);
-  }
-
-  function makeColumnLabels() {
-    const labels = [
-      ["th.default, th.main-link", "标题"],
-      ["th.posters", "所有者"],
-      ["th.posts", "回复"],
-      ["th.views", "浏览量"],
-      ["th.activity", "最近访问 ↓"]
-    ];
-
-    for (const [selector, label] of labels) {
-      for (const cell of document.querySelectorAll(`.topic-list-header ${selector}`)) {
-        let span = cell.querySelector(":scope > .lark-column-label");
-        if (!span) {
-          span = document.createElement("span");
-          span.className = "lark-column-label";
-          cell.prepend(span);
-        }
-        if (span.textContent !== label) span.textContent = label;
-      }
+    if (dateText) {
+      const meta = document.createElement("div");
+      meta.className = "lark-topic-meta";
+      meta.textContent = dateText;
+      context.append(meta);
     }
   }
 
+  // 路由分三类：话题页 /t/*、话题列表页（主页外观）、其他页面（仅基础换肤）
+  function routeKind() {
+    const path = location.pathname;
+    if (/^\/t\//.test(path)) return "topic";
+    if (path === "/" || /^\/(latest|new|unread|top|hot|categories|c|tag)(\/|$)/.test(path)) {
+      return "home";
+    }
+    return "other";
+  }
 
   function applyTheme() {
     injectStyle();
@@ -1243,11 +1235,11 @@
     applyColorMode();
     if (!document.body) return;
 
-    const isTopic = /^\/t\//.test(location.pathname);
-    document.documentElement.classList.toggle(HOME_CLASS, !isTopic);
+    const kind = routeKind();
+    const isTopic = kind === "topic";
+    const isHome = kind === "home";
+    document.documentElement.classList.toggle(HOME_CLASS, isHome);
     document.documentElement.classList.toggle(TOPIC_CLASS, isTopic);
-    document.body.classList.toggle(HOME_CLASS, !isTopic);
-    document.body.classList.toggle(TOPIC_CLASS, isTopic);
 
     makeBrand();
     makeFavicon();
@@ -1258,11 +1250,14 @@
     if (isTopic) {
       homeHeading?.remove();
       makeTopicContext();
-    } else {
+    } else if (isHome) {
       topicContext?.remove();
       makeHomeHeading();
       makeCreateTopicButton();
-      makeColumnLabels();
+    } else {
+      // 其他页面（用户页/搜索/后台等）只做基础换肤，不注入主页或话题页专属元素
+      homeHeading?.remove();
+      topicContext?.remove();
     }
   }
 
