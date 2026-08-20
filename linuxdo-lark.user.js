@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Linux DO · 飞书云文档外观
 // @namespace    https://linux.do/
-// @version      1.4.1
+// @version      1.4.2
 // @description  将 Linux DO 的主页与话题页换成飞书云文档风格，浅色 / 深色外观自动跟随站点颜色模式。仅改变外观，保留站点原有内容与交互。
 // @author       Codex
 // @match        https://linux.do/*
@@ -719,7 +719,7 @@
     html.lark-doc-theme.lark-doc-home .topic-list {
       width: 100% !important;
       margin-top: 0 !important;
-      border-collapse: collapse !important;
+      border-collapse: separate !important; /* collapse 会让 sticky 表头的边框失效 */
       border-spacing: 0 !important;
     }
 
@@ -766,7 +766,7 @@
     }
 
     html.lark-doc-theme.lark-doc-home .topic-list-header th.activity::before {
-      content: "最近访问 ↓";
+      content: "最近访问";
     }
 
     html.lark-doc-theme.lark-doc-home .topic-list-header th .d-icon {
@@ -884,6 +884,79 @@
       border-radius: 7px !important;
       background: var(--lark-highlight) !important;
       color: var(--lark-blue-strong) !important;
+    }
+
+    /* 表头吸附在固定顶栏下方，长列表保持表格感 */
+    html.lark-doc-theme.lark-doc-home .topic-list-header th {
+      position: sticky !important;
+      top: 64px !important;
+      z-index: 5 !important;
+      background: var(--lark-bg) !important;
+    }
+
+    /* 保留 Discourse 原生已读/未读语义：已读灰化、未读加粗 */
+    html.lark-doc-theme.lark-doc-home .topic-list-item .title a.visited,
+    html.lark-doc-theme.lark-doc-home .topic-list-item .link-top-line a.title.visited {
+      color: var(--lark-text-3) !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item.unread .title a:not(.visited) {
+      color: var(--lark-text-6) !important;
+      font-weight: 500 !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item .title a.visited:hover,
+    html.lark-doc-theme.lark-doc-home .topic-list-item.unread .title a:hover {
+      color: var(--lark-blue-strong) !important;
+    }
+
+    /* 标签渲染为飞书式 chip；li 字号归零以吞掉逗号分隔符文本节点 */
+    html.lark-doc-theme.lark-doc-home .topic-list-item .discourse-tags {
+      display: inline-flex !important;
+      flex-wrap: wrap !important;
+      gap: 4px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      list-style: none !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item .discourse-tags li {
+      font-size: 0 !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item .discourse-tags .discourse-tag {
+      display: inline-flex !important;
+      align-items: center !important;
+      height: 18px !important;
+      padding: 0 6px !important;
+      border-radius: 4px !important;
+      background: var(--lark-fill) !important;
+      color: var(--lark-text-2) !important;
+      font-size: 12px !important;
+      line-height: 18px !important;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item .discourse-tags .discourse-tag:hover {
+      background: var(--lark-fill-hover) !important;
+      color: var(--lark-text) !important;
+    }
+
+    /* 置顶话题：飞书式「置顶」chip 替代图钉图标 */
+    html.lark-doc-theme.lark-doc-home .topic-list-item.pinned .link-top-line::before {
+      content: "置顶";
+      display: inline-block;
+      margin-right: 6px;
+      padding: 0 6px;
+      border-radius: 4px;
+      background: var(--lark-highlight);
+      color: var(--lark-blue-strong);
+      font-size: 12px;
+      line-height: 18px;
+      vertical-align: 2px;
+    }
+
+    html.lark-doc-theme.lark-doc-home .topic-list-item.pinned .topic-statuses .d-icon-thumbtack {
+      display: none !important;
     }
 
     /* 话题页：主帖是文档，回复是评论线程 */
